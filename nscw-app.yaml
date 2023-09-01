@@ -1,0 +1,340 @@
+name: nscw
+description: NSC Wrapper
+version: 1.0.0
+author: Synadia Communications
+
+commands:
+  - name: keys
+    description: Show keys
+    type: exec
+    flags:
+      - name: secret
+        description: Show secret keys
+        bool: true
+        default:
+    script: |
+      nsc list keys -A {{ if .Flags.secret }} --show-seeds {{end}}
+  - name: generate
+    description: Generate a memory resolver configuration for the current operator and account
+    type: exec
+    flags:
+      - name: out
+        description: destination output (stdout by default)
+        default: --
+    script: |
+      nsc generate config --mem-resolver --force --config-file "{{ .Flags.out }}"
+  - name: operator
+    type: parent
+    description: Operator related commands
+    commands:
+      - name: select
+        type: exec
+        description: Set the current operator
+        arguments:
+          - name: name
+            description: The operator name
+            required: true
+        script: |
+          nsc select operator "{{ .Arguments.name }}"
+      - name: get
+        type: exec
+        description: Returns the operator JWT
+        flags:
+          - name: out
+            description: Save the output to a file. If not JSON, the file will be armored.
+            default:
+          - name: json
+            description: Print the decoded jwt as JSON (exclusive of --raw)
+            bool: true
+            default:
+        script:  >-
+          nsc describe operator
+          {{if .Flags.json}} --json {{ else }} --raw {{ end }}
+          {{ if .Flags.out }} --output-file "{{ .Flags.out }}" {{ end }}
+      - name: list
+        type: exec
+        description: List all the operators
+        script: |
+          nsc list operators
+      - name: describe
+        type: exec
+        description: Describe the current operator
+        script: |
+          nsc describe operator
+      - name: add
+        type: exec
+        description: Adds a new operator
+        arguments:
+          - name: name
+            description: The friendly name for this operator
+            required: true
+        flags:
+          - name: expiry
+            description: Valid until '0' is always, '2M' is two months, yyyy-mm-dd
+            default: 0
+        script: |
+          nsc add operator --name "{{ .Arguments.name }}" --expiry "{{.Flags.expiry}}"
+      - name: edit
+        type: exec
+        description: Edits the current operator
+        flags:
+          - name: expiry
+            description: Valid until '0' is always, '2M' is two months, yyyy-mm-dd
+            default: ""
+          - name: account-jwt-server-url
+            description: Sets the account server URL - set it to nats://host:port if you have configured a NATS resolver
+            default:
+          - name: rm-account-jwt-server-url
+            description: Removes the account server URL
+            bool: true
+            default:
+          - name: sk
+            description: Signing key or keypath or the value "generate" to generate a key pair on the fly
+            default:
+          - name: rm-sk
+            description: remove signing key
+            default:
+          - name: system-account
+            description: Set system account by account by public key or name
+            default:
+          - name: service-url
+            description: Set service url for the operator (nats://localhost:4222)
+            default:
+        script: >-
+          nsc edit operator
+          {{if .Flags.expiry }} --expiry "{{.Flags.expiry}}" {{end}}
+          {{if index .Flags "system-account"}} --system-account "{{index .Flags "system-account"}}" {{end}}
+          {{if index .Flags "rm-account-jwt-server-url"}} --rm-account-jwt-server-url {{end}}
+          {{if index .Flags "account-jwt-server-url"}} --account-jwt-server-url "{{index .Flags "account-jwt-server-url"}}" {{end}}
+          {{if index .Flags "service-url"}} --service-url "{{index .Flags "service-url"}}" {{end}}
+          {{if .Flags.sk}} --sk "{{.Flags.sk}}" {{end}}
+          {{if index .Flags "rm-sk"}} --rm-sk "{{index .Flags "rm-sk"}}" {{end}}
+  - name: accounts
+    type: parent
+    description: Account related commands
+    commands:
+      - name: get
+        type: exec
+        description: Returns the account JWT
+        flags:
+          - name: out
+            description: Save the output to a file. If not JSON, the file will be armored.
+            default:
+          - name: json
+            description: Print the decoded jwt as JSON (exclusive of --raw)
+            bool: true
+            default:
+        script: >-
+          nsc describe account
+          {{if .Flags.json}} --json {{ else }} --raw {{ end }}
+          {{ if .Flags.out }} --output-file "{{ .Flags.out }}" {{ end }}
+      - name: select
+        type: exec
+        description: Set the current account
+        arguments:
+          - name: name
+            description: The account name
+            required: true
+        script: |
+          nsc select account "{{ .Arguments.name }}"
+      - name: list
+        type: exec
+        description: list all the accounts
+        script: |
+          nsc list accounts
+      - name: describe
+        type: exec
+        description: describe the current account
+        script: |
+          nsc describe account
+      - name: add
+        type: exec
+        description: Adds a new account
+        arguments:
+          - name: name
+            description: The friendly name for this account
+            required: true
+        flags:
+          - name: expiry
+            description: Valid until '0' is always, '2M' is two months, yyyy-mm-dd
+            default: 0
+        script: |
+          nsc add account --name "{{ .Arguments.name }}" --expiry "{{.Flags.expiry}}"
+      - name: delete
+        type: exec
+        description: deletes the specified account
+        arguments:
+          - name: name
+            description: The friendly name for this account
+            required: true
+        script: |
+          nsc delete account --revoke --name "{{ .Arguments.name }}"
+      - name: edit
+        type: exec
+        description: Edit the current account
+        flags:
+          - name: expiry
+            description: Valid until '0' is always, '2M' is two months, yyyy-mm-dd
+            default: ""
+          - name: sk
+            description: Signing key or keypath or the value "generate" to generate a key pair on the fly
+            default:
+          - name: rm-sk
+            description: remove signing key
+            default:
+          - name: disallow-bearer
+            description: reject user JWTs that have allow-bearer enabled
+            enum: ["true", "false"]
+            default: "true"
+        script: >-
+          nsc edit account
+          {{if .Flags.expiry }} --expiry "{{.Flags.expiry}}" {{end}}
+          {{if .Flags.sk}} --sk "{{.Flags.sk}}" {{end}}
+          {{if index .Flags "rm-sk"}} --rm-sk "{{index .Flags "rm-sk"}}" {{end}}
+          {{if index .Flags "disallow-bearer"}} --disallow-bearer="{{index .Flags "disallow-bearer"}}" {{end}}
+  - name: users
+    type: parent
+    description: Users related commands
+    commands:
+      - name: get
+        type: exec
+        description: Returns the user JWT
+        flags:
+          - name: out
+            description: Save the output to a file. If not JSON, the file will be armored.
+            default:
+          - name: json
+            description: Print the decoded jwt as JSON (exclusive of --raw)
+            bool: true
+            default:
+        script: >-
+          nsc describe user
+          {{if .Flags.json}} --json {{ else }} --raw {{ end }}
+          {{ if .Flags.out }} --output-file "{{ .Flags.out }}" {{ end }}
+      - name: list
+        type: exec
+        description: list all users in the current account
+        script: |
+          nsc list users
+      - name: describe
+        type: exec
+        arguments:
+          - name: name
+            description: The friendly name for the user
+            required: true
+        description: describe the user in the current account
+        script: |
+          nsc describe user --name "{{ .Arguments.name }}"
+      - name: add
+        type: exec
+        description: Adds a new user
+        arguments:
+          - name: name
+            description: The friendly name for this account
+            required: true
+        flags:
+          - name: expiry
+            description: Valid until '0' is always, '2M' is two months, yyyy-mm-dd
+            default: 0
+        script: |
+          nsc add user --name "{{ .Arguments.name }}" --expiry "{{.Flags.expiry}}"
+      - name: delete
+        type: exec
+        description: deletes the specified user
+        arguments:
+          - name: name
+            description: The friendly name for this account
+            required: true
+        script: |
+          nsc delete user --revoke --name "{{ .Arguments.name }}"
+      - name: allow-perm
+        type: exec
+        description: add allow permissions
+        arguments:
+          - name: name
+            description: The friendly name for the user
+            required: true
+        flags:
+          - name: pubsub
+            description: Add a pub and subscribe permission (comma separated)
+            default:
+          - name: sub
+            description: Add a subscribe permission (comma separated)
+            default:
+          - name: pub
+            description: Add a publish permission (comma separated)
+            default:
+          - name: respond
+            description: Allow responses
+            placeholder: max number of responses
+            default: "1"
+        script: >-
+          nsc edit user --name "{{ .Arguments.name }}" 
+          {{ if .Flags.pubsub }} --allow-pubsub "{{ .Flags.pubsub }}" {{end}}
+          {{ if .Flags.sub }} --allow-sub "{{ .Flags.sub }}" {{end}}
+          {{ if .Flags.pub }} --allow-pub "{{ .Flags.pub }}" {{end}}
+          {{ if .Flags.respond }} --allow-pub-response="{{.Flags.respond}}" {{end}}
+      - name: deny-perm
+        type: exec
+        description: add deny permissions
+        arguments:
+          - name: name
+            description: The friendly name for the user
+            required: true
+        flags:
+          - name: pubsub
+            description: Add a deny pub and subscribe permission (comma separated)
+            default:
+          - name: sub
+            description: Add a subscribe permission (comma separated)
+            default:
+          - name: pub
+            description: Add a publish permission (comma separated)
+            default:
+          - name: respond
+            description: Allow responses
+            placeholder: max number of responses
+            default: "1"
+        script: >-
+          nsc edit user --name "{{ .Arguments.name }}" 
+          {{ if .Flags.pubsub }} --deny-pubsub "{{ .Flags.pubsub }}" {{end}}
+          {{ if .Flags.sub }} --deny-sub "{{ .Flags.sub }}" {{end}}
+          {{ if .Flags.pub }} --deny-pub "{{ .Flags.pub }}" {{end}}
+      - name: remove-perm
+        type: exec
+        description: remove allow/deny pub/sub and respond restrictions
+        arguments:
+          - name: name
+            description: The friendly name for the user
+            required: true
+        flags:
+          - name: rm
+            description: Remove a publish and/or subscribe permission to the specified subject(s) (comma separated)
+            default:
+          - name: rm-respond
+            description: Remove response permission
+            bool: true
+            default:
+        script: >-
+          nsc edit user --name "{{ .Arguments.name }}" 
+          {{ if .Flags.rm }} --rm "{{ .Flags.rm }}" {{end}}
+          {{ if index .Flags "rm-respond" }} --rm-response-perms {{end}}
+      - name: creds
+        type: exec
+        description: generate creds for an user
+        arguments:
+          - name: name
+            description: The friendly name for the user
+            required: true
+        flags:
+          - name: account
+            description: the users account
+            default:
+          - name: out
+            description: Save the output to a file. If not JSON, the file will be armored.
+            default:
+        script: >-
+          nsc generate creds
+          {{ if .Flags.account }} --account "{{ .Flags.account }}" {{end}}
+          --name "{{ .Arguments.name }}" 
+          {{ if .Flags.out }} --output-file "{{ .Flags.out }}" {{ end }}
